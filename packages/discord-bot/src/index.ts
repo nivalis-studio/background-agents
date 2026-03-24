@@ -22,7 +22,8 @@ import { createClassifier } from "./classifier";
 import { getAvailableRepos, getRepoByFullName, getRepoById } from "./classifier/repos";
 import { callbacksRouter } from "./callbacks";
 import { generateInternalToken } from "./utils/internal";
-import { createLogger, parseLogLevel } from "./logger";
+import { createLogger } from "./logger";
+import { getDiscordConfig } from "./utils/integration-config";
 import {
   MODEL_OPTIONS,
   DEFAULT_MODEL,
@@ -38,8 +39,6 @@ const log = createLogger("handler");
 const THINKING_EMOJI = "⏳";
 const PENDING_SELECTION_TTL_SECONDS = 15 * 60;
 const THREAD_SESSION_TTL_SECONDS = 24 * 60 * 60;
-
-type DiscordMessagePayload = Record<string, unknown>;
 
 function getThreadSessionKey(channelId: string): string {
   return `thread:${channelId}`;
@@ -223,8 +222,7 @@ function buildThreadContextMessages(
 
 async function gatherContext(
   env: Env,
-  channelId: string,
-  traceId?: string
+  channelId: string
 ): Promise<{
   context: {
     channelId: string;
@@ -349,10 +347,15 @@ async function ensureTargetChannel(
   env: Env,
   channelId: string,
   prompt: string,
+  createThread: boolean,
   traceId?: string
 ): Promise<{ targetChannelId: string; parentStatusMessageId?: string }> {
   const channelInfo = await getChannelInfo(env.DISCORD_BOT_TOKEN, channelId);
   if (isThreadChannel(channelInfo)) {
+    return { targetChannelId: channelId };
+  }
+
+  if (!createThread) {
     return { targetChannelId: channelId };
   }
 
@@ -424,9 +427,17 @@ async function startSessionAndSendPrompt(
   context: { channelName?: string; channelDescription?: string; previousMessages?: string[] },
   model: string,
   reasoningEffort: string | undefined,
+  sessionInstructions: string | null,
+  createThreadsOnNewSession: boolean,
   traceId?: string
 ): Promise<{ sessionId: string; targetChannelId: string } | null> {
-  const { targetChannelId } = await ensureTargetChannel(env, sourceChannelId, prompt, traceId);
+  const { targetChannelId } = await ensureTargetChannel(
+    env,
+    sourceChannelId,
+    prompt,
+    createThreadsOnNewSession,
+    traceId
+  );
 
   const session = await createSession(env, repo, undefined, model, reasoningEffort, traceId);
   if (!session) {
@@ -464,6 +475,10 @@ async function startSessionAndSendPrompt(
       promptParts.push("- Previous thread messages:");
       promptParts.push(...context.previousMessages.map((message) => `  - ${message}`));
     }
+  }
+
+  if (sessionInstructions) {
+    promptParts.push(`\n## Additional Instructions\n\n${sessionInstructions}`);
   }
 
   const promptResult = await sendPrompt(
@@ -557,14 +572,13 @@ async function handleInspectCommand(
     return;
   }
 
+  const { channelInfo, context } = await gatherContext(env, channelId);
   const prefs = await getUserPreferences(env, userId);
-  const model = getValidModelOrDefault(prefs?.model ?? env.DEFAULT_MODEL ?? DEFAULT_MODEL);
-  const reasoningEffort =
-    prefs?.reasoningEffort && isValidReasoningEffort(model, prefs.reasoningEffort)
+  const fallbackModel = getValidModelOrDefault(prefs?.model ?? env.DEFAULT_MODEL ?? DEFAULT_MODEL);
+  const fallbackReasoningEffort =
+    prefs?.reasoningEffort && isValidReasoningEffort(fallbackModel, prefs.reasoningEffort)
       ? prefs.reasoningEffort
-      : getDefaultReasoningEffort(model);
-
-  const { channelInfo, context } = await gatherContext(env, channelId, traceId);
+      : getDefaultReasoningEffort(fallbackModel);
 
   if (context.isThread) {
     const existingSession = await lookupThreadSession(env, channelId);
@@ -618,8 +632,8 @@ async function handleInspectCommand(
         channelName: context.channelName,
         channelDescription: context.channelDescription,
         previousMessages: context.previousMessages,
-        model,
-        reasoningEffort,
+        model: fallbackModel,
+        reasoningEffort: fallbackReasoningEffort,
         createdAt: Date.now(),
       };
       await env.DISCORD_KV.put(getPendingSelectionKey(pendingId), JSON.stringify(pending), {
@@ -632,6 +646,31 @@ async function handleInspectCommand(
       return;
     }
   }
+
+  const discordConfig = await getDiscordConfig(env, repo.fullName);
+  if (
+    discordConfig.enabledRepos &&
+    !discordConfig.enabledRepos.includes(repo.fullName.toLowerCase())
+  ) {
+    await editOriginalInteractionResponse(env.DISCORD_APPLICATION_ID, interactionToken, {
+      content: `The Discord bot is not enabled for **${repo.fullName}**.`,
+      components: [],
+    });
+    return;
+  }
+
+  const configuredModel = discordConfig.model ?? env.DEFAULT_MODEL ?? DEFAULT_MODEL;
+  const preferenceModel = discordConfig.allowUserPreferenceOverride ? prefs?.model : undefined;
+  const model = getValidModelOrDefault(preferenceModel ?? configuredModel);
+  const reasoningEffort =
+    discordConfig.allowUserPreferenceOverride &&
+    prefs?.reasoningEffort &&
+    isValidReasoningEffort(model, prefs.reasoningEffort)
+      ? prefs.reasoningEffort
+      : discordConfig.reasoningEffort &&
+          isValidReasoningEffort(model, discordConfig.reasoningEffort)
+        ? discordConfig.reasoningEffort
+        : getDefaultReasoningEffort(model);
 
   const started = await startSessionAndSendPrompt(
     env,
@@ -646,6 +685,8 @@ async function handleInspectCommand(
     },
     model,
     reasoningEffort,
+    discordConfig.sessionInstructions,
+    discordConfig.createThreadsOnNewSession,
     traceId
   );
 
@@ -701,6 +742,18 @@ async function handleRepoSelection(
     return;
   }
 
+  const discordConfig = await getDiscordConfig(env, repo.fullName);
+  if (
+    discordConfig.enabledRepos &&
+    !discordConfig.enabledRepos.includes(repo.fullName.toLowerCase())
+  ) {
+    await editOriginalInteractionResponse(env.DISCORD_APPLICATION_ID, interaction.token, {
+      content: `The Discord bot is not enabled for **${repo.fullName}**.`,
+      components: [],
+    });
+    return;
+  }
+
   const started = await startSessionAndSendPrompt(
     env,
     repo,
@@ -712,8 +765,17 @@ async function handleRepoSelection(
       channelDescription: pending.channelDescription,
       previousMessages: pending.previousMessages,
     },
-    pending.model,
-    pending.reasoningEffort,
+    discordConfig.allowUserPreferenceOverride
+      ? pending.model
+      : getValidModelOrDefault(discordConfig.model ?? env.DEFAULT_MODEL ?? DEFAULT_MODEL),
+    discordConfig.allowUserPreferenceOverride
+      ? pending.reasoningEffort
+      : (discordConfig.reasoningEffort ??
+          getDefaultReasoningEffort(
+            getValidModelOrDefault(discordConfig.model ?? env.DEFAULT_MODEL ?? DEFAULT_MODEL)
+          )),
+    discordConfig.sessionInstructions,
+    discordConfig.createThreadsOnNewSession,
     traceId
   );
 

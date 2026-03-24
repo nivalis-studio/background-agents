@@ -1,6 +1,6 @@
 // Integration settings types
 
-export type IntegrationId = "github" | "linear" | "code-server";
+export type IntegrationId = "github" | "discord" | "linear" | "code-server";
 
 /** Enforces the common shape for all integration configurations. */
 export interface IntegrationEntry<TRepo extends object = Record<string, unknown>> {
@@ -31,6 +31,15 @@ export interface LinearBotSettings {
   issueSessionInstructions?: string;
 }
 
+/** Overridable behavior settings for the Discord bot. Used at both global and per-repo levels. */
+export interface DiscordBotSettings {
+  model?: string;
+  reasoningEffort?: string;
+  allowUserPreferenceOverride?: boolean;
+  createThreadsOnNewSession?: boolean;
+  sessionInstructions?: string;
+}
+
 /** Overridable behavior settings for the code-server integration. */
 export interface CodeServerSettings {
   enabled?: boolean;
@@ -39,12 +48,14 @@ export interface CodeServerSettings {
 /** Maps each integration ID to its global and per-repo settings types. */
 export interface IntegrationSettingsMap {
   github: IntegrationEntry<GitHubBotSettings>;
+  discord: IntegrationEntry<DiscordBotSettings>;
   linear: IntegrationEntry<LinearBotSettings>;
   "code-server": IntegrationEntry<CodeServerSettings>;
 }
 
 /** Derived type for the GitHub bot global config. */
 export type GitHubGlobalConfig = IntegrationSettingsMap["github"]["global"];
+export type DiscordGlobalConfig = IntegrationSettingsMap["discord"]["global"];
 export type LinearGlobalConfig = IntegrationSettingsMap["linear"]["global"];
 export type CodeServerGlobalConfig = IntegrationSettingsMap["code-server"]["global"];
 
@@ -57,6 +68,11 @@ export const INTEGRATION_DEFINITIONS: {
     id: "github",
     name: "GitHub Bot",
     description: "Automated PR reviews and comment-triggered actions",
+  },
+  {
+    id: "discord",
+    name: "Discord Bot",
+    description: "Slash-command driven coding sessions from Discord threads",
   },
   {
     id: "linear",

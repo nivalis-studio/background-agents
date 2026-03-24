@@ -5,6 +5,7 @@
 import {
   isValidReasoningEffort,
   type CodeServerSettings,
+  type DiscordBotSettings,
   type GitHubBotSettings,
   type IntegrationId,
   type LinearBotSettings,
@@ -311,6 +312,29 @@ async function handleGetResolvedConfig(
         allowedTriggerUsers: githubSettings.allowedTriggerUsers ?? null,
         codeReviewInstructions: githubSettings.codeReviewInstructions ?? null,
         commentActionInstructions: githubSettings.commentActionInstructions ?? null,
+      },
+    });
+  }
+
+  if (id === "discord") {
+    const discordSettings = settings as DiscordBotSettings;
+    const discordReasoningEffort =
+      discordSettings.model &&
+      discordSettings.reasoningEffort &&
+      !isValidReasoningEffort(discordSettings.model, discordSettings.reasoningEffort)
+        ? null
+        : (discordSettings.reasoningEffort ?? null);
+
+    return json({
+      integrationId: id,
+      repo,
+      config: {
+        model: discordSettings.model ?? null,
+        reasoningEffort: discordReasoningEffort,
+        allowUserPreferenceOverride: discordSettings.allowUserPreferenceOverride ?? true,
+        createThreadsOnNewSession: discordSettings.createThreadsOnNewSession ?? true,
+        sessionInstructions: discordSettings.sessionInstructions ?? null,
+        enabledRepos,
       },
     });
   }

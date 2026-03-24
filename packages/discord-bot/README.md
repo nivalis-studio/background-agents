@@ -155,6 +155,20 @@ Shows a Discord select-menu UI for:
 
 Preferences are stored per Discord user in KV.
 
+## Web App Integration Settings
+
+The Open-Inspect web app exposes a **Settings -> Integrations -> Discord Bot** panel for
+configuring:
+
+- default model and reasoning effort
+- whether Discord user preferences can override defaults
+- whether new `/inspect` requests create Discord threads automatically
+- optional prompt instructions appended to all Discord sessions
+- repository allowlists and per-repository overrides
+
+These settings are stored in the control plane and resolved per repository before a Discord session
+is created.
+
 ## Authentication
 
 ### Discord webhook verification

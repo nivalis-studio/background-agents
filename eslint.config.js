@@ -106,6 +106,16 @@ export default tseslint.config(
     },
   },
 
+  {
+    files: ["packages/discord-bot/scripts/**/*.mjs"],
+    languageOptions: {
+      globals: {
+        ...globals.node,
+        ...globals.browser,
+      },
+    },
+  },
+
   // Test files configuration
   {
     files: ["**/*.test.{ts,tsx}", "**/*.spec.{ts,tsx}"],

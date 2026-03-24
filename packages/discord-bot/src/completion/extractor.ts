@@ -110,7 +110,7 @@ function summarizeToolCall(data: Record<string, unknown>): ToolCallSummary {
       return { tool, summary: `Ran: ${cmd}${cmd.length >= 40 ? "..." : ""}` };
     }
     case "Grep":
-      return { tool, summary: `Searched for \"${args.pattern ?? ""}\"` };
+      return { tool, summary: `Searched for "${args.pattern ?? ""}"` };
     default:
       return { tool, summary: `Used ${tool}` };
   }

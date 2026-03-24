@@ -1,5 +1,5 @@
 import Anthropic from "@anthropic-ai/sdk";
-import type { Env, RepoConfig, ThreadContext, ClassificationResult } from "../types";
+import type { Env, ThreadContext, ClassificationResult } from "../types";
 import { getAvailableRepos, buildRepoDescriptions, getReposByChannel } from "./repos";
 
 const CLASSIFY_REPO_TOOL_NAME = "classify_repository";

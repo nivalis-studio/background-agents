@@ -4,6 +4,7 @@ import {
   INTEGRATION_DEFINITIONS,
   type IntegrationId,
   type IntegrationSettingsMap,
+  type DiscordBotSettings,
   type GitHubBotSettings,
   type LinearBotSettings,
   type CodeServerSettings,
@@ -176,6 +177,10 @@ export class IntegrationSettingsStore {
       ) as IntegrationSettingsMap[K]["repo"];
     }
 
+    if (integrationId === "discord") {
+      this.validateDiscordSettings(settings as DiscordBotSettings);
+    }
+
     if (integrationId === "linear") {
       this.validateLinearSettings(settings as LinearBotSettings);
     }
@@ -275,6 +280,40 @@ export class IntegrationSettingsStore {
     ) {
       throw new IntegrationSettingsValidationError(
         "issueSessionInstructions must be 10000 characters or fewer"
+      );
+    }
+  }
+
+  private validateDiscordSettings(settings: DiscordBotSettings): void {
+    this.validateModelAndEffort(settings);
+
+    if (
+      settings.allowUserPreferenceOverride !== undefined &&
+      typeof settings.allowUserPreferenceOverride !== "boolean"
+    ) {
+      throw new IntegrationSettingsValidationError("allowUserPreferenceOverride must be a boolean");
+    }
+
+    if (
+      settings.createThreadsOnNewSession !== undefined &&
+      typeof settings.createThreadsOnNewSession !== "boolean"
+    ) {
+      throw new IntegrationSettingsValidationError("createThreadsOnNewSession must be a boolean");
+    }
+
+    if (
+      settings.sessionInstructions !== undefined &&
+      typeof settings.sessionInstructions !== "string"
+    ) {
+      throw new IntegrationSettingsValidationError("sessionInstructions must be a string");
+    }
+
+    if (
+      typeof settings.sessionInstructions === "string" &&
+      settings.sessionInstructions.length > 10000
+    ) {
+      throw new IntegrationSettingsValidationError(
+        "sessionInstructions must be 10000 characters or fewer"
       );
     }
   }
