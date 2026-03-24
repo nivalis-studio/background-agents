@@ -13,6 +13,11 @@ output "slack_kv_id" {
   value       = var.enable_slack_bot ? module.slack_kv[0].namespace_id : null
 }
 
+output "discord_kv_id" {
+  description = "Discord KV namespace ID"
+  value       = var.enable_discord_bot ? module.discord_kv[0].namespace_id : null
+}
+
 output "github_kv_id" {
   description = "GitHub KV namespace ID"
   value       = var.enable_github_bot ? module.github_kv[0].namespace_id : null
@@ -27,7 +32,7 @@ output "d1_database_id" {
 # Cloudflare Workers
 output "control_plane_url" {
   description = "Control plane worker URL"
-  value       = module.control_plane_worker.worker_url
+  value       = local.control_plane_url
 }
 
 output "control_plane_worker_name" {
@@ -38,6 +43,11 @@ output "control_plane_worker_name" {
 output "slack_bot_worker_name" {
   description = "Slack bot worker name"
   value       = var.enable_slack_bot ? module.slack_bot_worker[0].worker_name : null
+}
+
+output "discord_bot_worker_name" {
+  description = "Discord bot worker name"
+  value       = var.enable_discord_bot ? module.discord_bot_worker[0].worker_name : null
 }
 
 output "linear_kv_id" {
@@ -101,7 +111,7 @@ output "verification_commands" {
   value       = <<-EOF
 
     # 1. Health check control plane
-    curl ${module.control_plane_worker.worker_url}/health
+    curl ${local.control_plane_url}/health
 
     # 2. Health check Modal
     curl ${module.modal_app.api_health_url}
@@ -110,7 +120,7 @@ output "verification_commands" {
     curl ${local.web_app_url}
 
     # 4. Test authenticated endpoint (should return 401)
-    curl ${module.control_plane_worker.worker_url}/sessions
+    curl ${local.control_plane_url}/sessions
 
   EOF
 }

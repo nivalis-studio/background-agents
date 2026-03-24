@@ -118,6 +118,44 @@ variable "github_bot_username" {
 }
 
 # =============================================================================
+# Discord Bot Credentials
+# =============================================================================
+
+variable "enable_discord_bot" {
+  description = "Enable the Discord bot worker. Requires discord_application_id, discord_public_key, and discord_bot_token."
+  type        = bool
+  default     = false
+
+  validation {
+    condition = var.enable_discord_bot == false || (
+      length(var.discord_application_id) > 0 &&
+      length(var.discord_public_key) > 0 &&
+      length(var.discord_bot_token) > 0
+    )
+    error_message = "When enable_discord_bot is true, discord_application_id, discord_public_key, and discord_bot_token must be non-empty."
+  }
+}
+
+variable "discord_application_id" {
+  description = "Discord application ID"
+  type        = string
+  default     = ""
+}
+
+variable "discord_public_key" {
+  description = "Discord interaction public key"
+  type        = string
+  default     = ""
+}
+
+variable "discord_bot_token" {
+  description = "Discord bot token"
+  type        = string
+  sensitive   = true
+  default     = ""
+}
+
+# =============================================================================
 # Slack App Credentials
 # =============================================================================
 

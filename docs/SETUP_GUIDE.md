@@ -165,6 +165,7 @@ npm test -w @open-inspect/web
 # Bots
 npm test -w @open-inspect/github-bot
 npm test -w @open-inspect/slack-bot
+npm test -w @open-inspect/discord-bot
 npm test -w @open-inspect/linear-bot
 ```
 

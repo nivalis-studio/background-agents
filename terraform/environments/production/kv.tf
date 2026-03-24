@@ -17,6 +17,14 @@ module "slack_kv" {
   namespace_name = "open-inspect-slack-kv-${local.name_suffix}"
 }
 
+module "discord_kv" {
+  count  = var.enable_discord_bot ? 1 : 0
+  source = "../../modules/cloudflare-kv"
+
+  account_id     = var.cloudflare_account_id
+  namespace_name = "open-inspect-discord-kv-${local.name_suffix}"
+}
+
 module "github_kv" {
   count  = var.enable_github_bot ? 1 : 0
   source = "../../modules/cloudflare-kv"

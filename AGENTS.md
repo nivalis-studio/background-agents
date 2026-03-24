@@ -19,6 +19,7 @@ Three tiers connected by WebSockets:
 **Bot integrations** — all Cloudflare Workers using Hono:
 
 - `slack-bot` — Slack messages → coding sessions
+- `discord-bot` — Discord slash commands and threads → coding sessions
 - `github-bot` — PR review assignments and @mention commands
 - `linear-bot` — Linear agent webhooks → coding sessions
 
@@ -28,7 +29,7 @@ events back through the same WebSocket chain.
 ### Package Dependency Graph
 
 ```
-@open-inspect/shared  ←  control-plane, web, slack-bot, github-bot, linear-bot
+@open-inspect/shared  ←  control-plane, web, slack-bot, discord-bot, github-bot, linear-bot
 ```
 
 **Build `@open-inspect/shared` first** whenever you change shared types. Other packages import from
@@ -42,6 +43,7 @@ it at build time.
 | `control-plane` | TypeScript / CF Workers + DO       | Session management, WebSocket streaming, GitHub integration |
 | `web`           | TypeScript / Next.js 16 + React 19 | User-facing dashboard, OAuth, real-time UI                  |
 | `slack-bot`     | TypeScript / CF Workers + Hono     | Slack event handler, session creation                       |
+| `discord-bot`   | TypeScript / CF Workers + Hono     | Discord slash commands, thread sessions, completion posts   |
 | `github-bot`    | TypeScript / CF Workers + Hono     | PR review and @mention webhook handler                      |
 | `linear-bot`    | TypeScript / CF Workers + Hono     | Linear agent webhook handler                                |
 | `modal-infra`   | Python 3.12 / Modal + FastAPI      | Sandbox lifecycle, WebSocket bridge to control plane        |
@@ -65,6 +67,7 @@ npm run test:integration -w @open-inspect/control-plane  # integration (workerd/
 npm test -w @open-inspect/web
 npm test -w @open-inspect/github-bot
 npm test -w @open-inspect/slack-bot
+npm test -w @open-inspect/discord-bot
 npm test -w @open-inspect/linear-bot
 
 # Tests — Python (pytest)
@@ -83,7 +86,7 @@ All TypeScript packages use **Vitest**; Python uses **pytest** + pytest-asyncio.
 - **control-plane unit**: co-located as `src/**/*.test.ts` — run in Node environment
 - **control-plane integration**: separate `test/integration/*.test.ts` — run in workerd via
   `@cloudflare/vitest-pool-workers` with real D1 bindings
-- **web, slack-bot, linear-bot**: co-located `src/**/*.test.ts`
+- **web, slack-bot, discord-bot, linear-bot**: co-located `src/**/*.test.ts`
 - **github-bot**: separate `test/*.test.ts`
 - **modal-infra**: `tests/test_*.py`
 

@@ -24,7 +24,14 @@ export type SandboxStatus =
   | "failed";
 export type GitSyncStatus = "pending" | "in_progress" | "completed" | "failed";
 export type MessageStatus = "pending" | "processing" | "completed" | "failed";
-export type MessageSource = "web" | "slack" | "linear" | "extension" | "github" | "automation";
+export type MessageSource =
+  | "web"
+  | "slack"
+  | "discord"
+  | "linear"
+  | "extension"
+  | "github"
+  | "automation";
 export type ArtifactType = "pr" | "screenshot" | "preview" | "branch";
 export type EventType =
   | "heartbeat"
@@ -465,6 +472,15 @@ export interface SlackCallbackContext {
   reactionMessageTs?: string;
 }
 
+export interface DiscordCallbackContext {
+  source: "discord";
+  channelId: string;
+  repoFullName: string;
+  model: string;
+  reasoningEffort?: string;
+  statusMessageId?: string;
+}
+
 export interface LinearCallbackContext {
   source: "linear";
   issueId: string;
@@ -486,6 +502,7 @@ export interface AutomationCallbackContext {
 
 export type CallbackContext =
   | SlackCallbackContext
+  | DiscordCallbackContext
   | LinearCallbackContext
   | AutomationCallbackContext;
 

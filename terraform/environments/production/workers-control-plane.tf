@@ -44,6 +44,12 @@ module "control_plane_worker" {
         service_name = "open-inspect-slack-bot-${local.name_suffix}"
       }
     ] : [],
+    var.enable_discord_bot ? [
+      {
+        binding_name = "DISCORD_BOT"
+        service_name = "open-inspect-discord-bot-${local.name_suffix}"
+      }
+    ] : [],
     var.enable_linear_bot ? [
       {
         binding_name = "LINEAR_BOT"

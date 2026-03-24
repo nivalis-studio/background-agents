@@ -36,15 +36,16 @@ Open-Inspect uses Terraform to automate deployment across three cloud providers:
 
 Create accounts on these services before continuing:
 
-| Service                                          | Purpose                                                        |
-| ------------------------------------------------ | -------------------------------------------------------------- |
-| [Cloudflare](https://dash.cloudflare.com)        | Control plane hosting (+ web app if using Cloudflare platform) |
-| [Vercel](https://vercel.com) _(optional)_        | Web application hosting (only if `web_platform = "vercel"`)    |
-| [Modal](https://modal.com)                       | Sandbox infrastructure                                         |
-| [GitHub](https://github.com/settings/developers) | OAuth + repository access                                      |
-| [Anthropic](https://console.anthropic.com)       | Claude API                                                     |
-| [Slack](https://api.slack.com/apps) _(optional)_ | Slack bot integration                                          |
-| GitHub App Webhooks _(optional)_                 | GitHub bot (PR reviews)                                        |
+| Service                                                             | Purpose                                                        |
+| ------------------------------------------------------------------- | -------------------------------------------------------------- |
+| [Cloudflare](https://dash.cloudflare.com)                           | Control plane hosting (+ web app if using Cloudflare platform) |
+| [Vercel](https://vercel.com) _(optional)_                           | Web application hosting (only if `web_platform = "vercel"`)    |
+| [Modal](https://modal.com)                                          | Sandbox infrastructure                                         |
+| [GitHub](https://github.com/settings/developers)                    | OAuth + repository access                                      |
+| [Anthropic](https://console.anthropic.com)                          | Claude API                                                     |
+| [Slack](https://api.slack.com/apps) _(optional)_                    | Slack bot integration                                          |
+| [Discord](https://discord.com/developers/applications) _(optional)_ | Discord bot integration                                        |
+| GitHub App Webhooks _(optional)_                                    | GitHub bot (PR reviews)                                        |
 
 ### Required Tools
 
@@ -244,6 +245,18 @@ Skip this step if you don't need Slack integration.
 Event Subscriptions require the Slack bot worker to be deployed first for URL verification. You'll
 configure this in **Step 7b** after running Terraform.
 
+## Step 4b: Create Discord App (Optional)
+
+Skip this step if you don't need Discord integration.
+
+1. Go to [Discord Developer Portal](https://discord.com/developers/applications)
+2. Create a new application for Open-Inspect
+3. Under **Bot**, create a bot user and note the **Bot Token**
+4. Under **General Information**, note the **Application ID** and **Public Key**
+5. Under **OAuth2 -> URL Generator**, invite the bot to your server with the `bot` and
+   `applications.commands` scopes
+6. You can configure the Interactions Endpoint URL only after the worker is deployed in **Step 7d**
+
 ---
 
 ## Step 5: Generate Security Secrets
@@ -333,6 +346,12 @@ enable_slack_bot     = false
 slack_bot_token      = ""
 slack_signing_secret = ""
 
+# Discord (set enable_discord_bot = false to disable Discord integration)
+enable_discord_bot      = false
+discord_application_id  = ""
+discord_public_key      = ""
+discord_bot_token       = ""
+
 # GitHub Bot (set enable_github_bot = true to deploy the webhook worker)
 enable_github_bot      = false
 github_webhook_secret  = ""          # From Step 5 (required if enabled)
@@ -386,7 +405,7 @@ enable_service_bindings        = false
 
 ```bash
 # From the repository root
-npm run build -w @open-inspect/control-plane -w @open-inspect/slack-bot -w @open-inspect/github-bot
+npm run build -w @open-inspect/control-plane -w @open-inspect/slack-bot -w @open-inspect/discord-bot -w @open-inspect/github-bot
 ```
 
 Then run:
@@ -511,6 +530,48 @@ Or construct it from your App's slug: if your app is named `My-Inspect-App`, the
 
 ---
 
+## Step 7d: Complete Discord Setup (If Using Discord)
+
+Now that the Discord bot worker is deployed, configure the Discord application and register slash
+commands.
+
+### Configure Interactions Endpoint
+
+1. Go to your application in the
+   [Discord Developer Portal](https://discord.com/developers/applications)
+2. Under **General Information**, set **Interactions Endpoint URL** to:
+   ```
+   https://open-inspect-discord-bot-{deployment_name}.YOUR-SUBDOMAIN.workers.dev/interactions
+   ```
+3. Save changes and confirm Discord accepts the endpoint
+
+### Register Slash Commands
+
+Run from the repository root:
+
+```bash
+DISCORD_APPLICATION_ID="your-app-id" \
+DISCORD_BOT_TOKEN="your-bot-token" \
+npm run register:commands -w @open-inspect/discord-bot
+```
+
+For faster propagation while testing, you can register guild-scoped commands instead:
+
+```bash
+DISCORD_APPLICATION_ID="your-app-id" \
+DISCORD_BOT_TOKEN="your-bot-token" \
+DISCORD_GUILD_ID="your-server-id" \
+npm run register:commands -w @open-inspect/discord-bot
+```
+
+### Usage
+
+- `/inspect prompt:<what to do> repo:<optional owner/name>` starts a coding session
+- `/inspect-settings` stores your preferred model and reasoning effort
+- Run `/inspect` inside an existing Discord thread to continue the mapped session
+
+---
+
 ## Step 8: Deploy the Web App
 
 ### If using Cloudflare (`web_platform = "cloudflare"`)
@@ -614,6 +675,10 @@ Go to your fork's Settings → Secrets and variables → Actions, and add:
 | `ENABLE_SLACK_BOT`            | `true` to deploy Slack bot, `false` to skip (default: `true`)                 |
 | `SLACK_BOT_TOKEN`             | Slack bot token (required if enabled)                                         |
 | `SLACK_SIGNING_SECRET`        | Slack signing secret (required if enabled)                                    |
+| `ENABLE_DISCORD_BOT`          | `true` to deploy Discord bot, `false` to skip (default: `false`)              |
+| `DISCORD_APPLICATION_ID`      | Discord application ID (required if Discord bot enabled)                      |
+| `DISCORD_PUBLIC_KEY`          | Discord interaction public key (required if Discord bot enabled)              |
+| `DISCORD_BOT_TOKEN`           | Discord bot token (required if Discord bot enabled)                           |
 | `ANTHROPIC_API_KEY`           | Anthropic API key                                                             |
 | `TOKEN_ENCRYPTION_KEY`        | Generated encryption key (OAuth tokens)                                       |
 | `REPO_SECRETS_ENCRYPTION_KEY` | Generated encryption key (repo secrets)                                       |
@@ -721,11 +786,12 @@ Terraform references the built worker bundles. Build them before running `terraf
 npm run build -w @open-inspect/shared
 
 # Build workers (required before Terraform)
-npm run build -w @open-inspect/control-plane -w @open-inspect/slack-bot -w @open-inspect/github-bot
+npm run build -w @open-inspect/control-plane -w @open-inspect/slack-bot -w @open-inspect/discord-bot -w @open-inspect/github-bot
 
 # Verify bundles exist
 ls packages/control-plane/dist/index.js
 ls packages/slack-bot/dist/index.js
+ls packages/discord-bot/dist/index.js  # Only if enable_discord_bot = true
 ls packages/github-bot/dist/index.js  # Only if enable_github_bot = true
 ```
 
@@ -757,6 +823,17 @@ If the bot doesn't see the original message when tagged in a thread reply:
 4. Check that `github_bot_username` matches your App's bot login (e.g., `my-app[bot]`)
 5. For PR reviews, ensure the bot is assigned as a reviewer (not just mentioned)
 6. For comment actions, ensure the bot is @mentioned in a **PR** comment (not an issue)
+
+### Discord bot not responding
+
+1. Verify the Interactions Endpoint URL matches
+   `https://open-inspect-discord-bot-{deployment_name}.YOUR-SUBDOMAIN.workers.dev/interactions`
+2. Check that `discord_application_id`, `discord_public_key`, and `discord_bot_token` are set in
+   `terraform.tfvars`
+3. Re-register slash commands after changing command definitions:
+   `npm run register:commands -w @open-inspect/discord-bot`
+4. Ensure the bot was invited with both the `bot` and `applications.commands` scopes
+5. Use `/inspect` in a thread when you want follow-up prompts to continue the same session
 
 ### Durable Objects / Service Binding errors
 
