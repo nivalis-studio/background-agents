@@ -97,5 +97,11 @@ module "control_plane_worker" {
 
   cron_triggers = ["* * * * *"]
 
-  depends_on = [null_resource.control_plane_build, module.session_index_kv, null_resource.d1_migrations, module.linear_bot_worker]
+  depends_on = [
+    null_resource.control_plane_build,
+    module.session_index_kv,
+    null_resource.d1_migrations,
+    module.linear_bot_worker,
+    module.discord_bot_worker,
+  ]
 }
