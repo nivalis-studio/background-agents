@@ -16,6 +16,8 @@ import {
   createThreadFromMessage,
   addReaction,
   editOriginalInteractionResponse,
+  getOriginalInteractionResponse,
+  removeOwnReaction,
   isThreadChannel,
 } from "./utils/discord-client";
 import { createClassifier } from "./classifier";
@@ -569,7 +571,7 @@ async function startSessionAndSendPrompt(
     repoFullName: repo.fullName,
     model,
     reasoningEffort,
-    statusMessageId,
+    originMessageId: statusMessageId,
   };
 
   const promptParts = [prompt.trim()];
@@ -619,33 +621,16 @@ async function continueSessionInThread(
   channelId: string,
   prompt: string,
   userId: string,
+  originMessageId: string,
   traceId?: string
 ): Promise<boolean> {
-  const statusMessageId = await postSessionStartedMessage(
-    env,
-    channelId,
-    {
-      id: threadSession.repoId,
-      owner: threadSession.repoFullName.split("/")[0] || "",
-      name: threadSession.repoFullName.split("/")[1] || "",
-      fullName: threadSession.repoFullName,
-      displayName: threadSession.repoFullName,
-      description: threadSession.repoFullName,
-      defaultBranch: "main",
-      private: true,
-    },
-    threadSession.sessionId,
-    "Using existing thread session",
-    traceId
-  );
-
   const callbackContext: CallbackContext = {
     source: "discord",
     channelId,
     repoFullName: threadSession.repoFullName,
     model: threadSession.model,
     reasoningEffort: threadSession.reasoningEffort,
-    statusMessageId,
+    originMessageId,
   };
 
   const result = await sendPrompt(
@@ -693,30 +678,56 @@ async function handleInspectCommand(
   if (context.isThread) {
     const existingSession = await lookupThreadSession(env, channelId);
     if (existingSession) {
+      await editOriginalInteractionResponse(env.DISCORD_APPLICATION_ID, interactionToken, {
+        content: buildInspectResponseContent({
+          prompt,
+          repoFullName: existingSession.repoFullName,
+          targetChannelId: channelId,
+          continued: true,
+        }),
+        components: [
+          {
+            type: 1,
+            components: [
+              {
+                type: 2,
+                style: 5,
+                label: "View Session",
+                url: `${env.WEB_APP_URL}/session/${existingSession.sessionId}`,
+              },
+            ],
+          },
+        ],
+      });
+
+      const originMessage = await getOriginalInteractionResponse(
+        env.DISCORD_APPLICATION_ID,
+        interactionToken
+      );
+      await addReaction(env.DISCORD_BOT_TOKEN, channelId, originMessage.id, THINKING_EMOJI);
+
       const continued = await continueSessionInThread(
         env,
         existingSession,
         channelId,
         prompt,
         userId,
+        originMessage.id,
         traceId
       );
-      await editOriginalInteractionResponse(env.DISCORD_APPLICATION_ID, interactionToken, {
-        content: continued
-          ? buildInspectResponseContent({
-              prompt,
-              repoFullName: existingSession.repoFullName,
-              targetChannelId: channelId,
-              continued: true,
-            })
-          : buildInspectResponseContent({
-              prompt,
-              repoFullName: existingSession.repoFullName,
-              targetChannelId: channelId,
-              failure: true,
-            }),
-        components: [],
-      });
+
+      if (!continued) {
+        await removeOwnReaction(env.DISCORD_BOT_TOKEN, channelId, originMessage.id, THINKING_EMOJI);
+        await editOriginalInteractionResponse(env.DISCORD_APPLICATION_ID, interactionToken, {
+          content: buildInspectResponseContent({
+            prompt,
+            repoFullName: existingSession.repoFullName,
+            targetChannelId: channelId,
+            failure: true,
+          }),
+          components: [],
+        });
+      }
       return;
     }
   }
@@ -977,6 +988,19 @@ async function handleRepoAutocomplete(
   });
 }
 
+async function shouldUseEphemeralInspectResponse(
+  interaction: DiscordInteraction,
+  env: Env
+): Promise<boolean> {
+  const channelId = interaction.channel_id;
+  if (!channelId) {
+    return true;
+  }
+
+  const existingSession = await lookupThreadSession(env, channelId);
+  return existingSession === null;
+}
+
 app.get("/health", (c) => c.json({ status: "healthy", service: "open-inspect-discord-bot" }));
 app.route("/callbacks", callbacksRouter);
 
@@ -1002,7 +1026,8 @@ app.post("/interactions", async (c) => {
 
   if (interaction.type === 2 && interaction.data?.name === "inspect") {
     c.executionCtx.waitUntil(handleInspectCommand(interaction, c.env, traceId));
-    return c.json({ type: 5 });
+    const useEphemeralResponse = await shouldUseEphemeralInspectResponse(interaction, c.env);
+    return useEphemeralResponse ? c.json({ type: 5, data: { flags: 64 } }) : c.json({ type: 5 });
   }
 
   if (interaction.type === 2 && interaction.data?.name === "inspect-settings") {

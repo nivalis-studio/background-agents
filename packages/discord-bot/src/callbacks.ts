@@ -77,21 +77,27 @@ async function handleCompletionCallback(
   try {
     const agentResponse = await extractAgentResponse(env, sessionId, payload.messageId, traceId);
     const message = buildCompletionMessage(sessionId, agentResponse, context, env.WEB_APP_URL);
+    if (context.originMessageId) {
+      message.message_reference = {
+        message_id: context.originMessageId,
+        channel_id: context.channelId,
+      };
+    }
     await createMessage(env.DISCORD_BOT_TOKEN, context.channelId, message);
 
-    if (context.statusMessageId) {
+    if (context.originMessageId) {
       try {
         await removeOwnReaction(
           env.DISCORD_BOT_TOKEN,
           context.channelId,
-          context.statusMessageId,
+          context.originMessageId,
           THINKING_EMOJI
         );
       } catch (error) {
         log.warn("discord.reaction.remove", {
           trace_id: traceId,
           channel_id: context.channelId,
-          message_id: context.statusMessageId,
+          message_id: context.originMessageId,
           error: error instanceof Error ? error : new Error(String(error)),
         });
       }

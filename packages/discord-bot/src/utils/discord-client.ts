@@ -186,3 +186,22 @@ export async function editOriginalInteractionResponse(
     throw new Error(`Discord interaction response ${response.status}: ${body}`);
   }
 }
+
+export async function getOriginalInteractionResponse(
+  applicationId: string,
+  interactionToken: string
+): Promise<{ id: string; channel_id: string }> {
+  const response = await fetch(
+    `${DISCORD_API_BASE}/webhooks/${applicationId}/${interactionToken}/messages/@original`,
+    {
+      method: "GET",
+    }
+  );
+
+  if (!response.ok) {
+    const body = await response.text();
+    throw new Error(`Discord interaction fetch ${response.status}: ${body}`);
+  }
+
+  return response.json() as Promise<{ id: string; channel_id: string }>;
+}

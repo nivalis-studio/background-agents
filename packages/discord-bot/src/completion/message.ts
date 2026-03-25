@@ -18,7 +18,7 @@ export function buildCompletionMessage(
   const embeds: Array<Record<string, unknown>> = [];
 
   embeds.push({
-    title: response.success ? "Run complete" : "Run completed with issues",
+    ...(response.success ? {} : { title: "Completed with issues" }),
     description: truncate(response.textContent) || "Agent completed.",
     color: response.success ? 0x2f855a : 0xdd6b20,
     fields: buildFields(response, context),

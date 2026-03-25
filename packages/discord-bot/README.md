@@ -151,8 +151,11 @@ still showing the full `owner/name` in the label.
 
 Behavior:
 
-- in a normal channel, the bot tries to create a Discord thread for the session
-- in an existing mapped thread, the bot reuses the current session
+- in a normal channel, the bot tries to create a Discord thread for the session and the initial
+  acknowledgement is ephemeral
+- in an existing mapped thread, the bot reuses the current session and the prompt acknowledgement is
+  visible in the thread; the completion message replies to that prompt acknowledgement so concurrent
+  prompts stay easy to follow
 - if repo classification is ambiguous, the bot returns a select menu for clarification
 
 ### `/inspect-settings`

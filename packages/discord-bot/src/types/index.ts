@@ -42,7 +42,7 @@ export interface DiscordCallbackContext {
   repoFullName: string;
   model: string;
   reasoningEffort?: string;
-  statusMessageId?: string;
+  originMessageId?: string;
 }
 
 export type CallbackContext = DiscordCallbackContext;
