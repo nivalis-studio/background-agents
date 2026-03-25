@@ -45,7 +45,6 @@ export function buildCompletionMessage(
   }
 
   return {
-    content: response.textContent ? truncate(response.textContent) : "Agent completed.",
     embeds,
     components: [{ type: 1, components: buttons }],
   };
