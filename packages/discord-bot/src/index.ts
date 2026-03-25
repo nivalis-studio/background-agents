@@ -39,6 +39,7 @@ const log = createLogger("handler");
 const THINKING_EMOJI = "⏳";
 const PENDING_SELECTION_TTL_SECONDS = 15 * 60;
 const THREAD_SESSION_TTL_SECONDS = 24 * 60 * 60;
+const PROMPT_PREVIEW_LIMIT = 1500;
 
 function getThreadSessionKey(channelId: string): string {
   return `thread:${channelId}`;
@@ -50,6 +51,48 @@ function getUserPreferencesKey(userId: string): string {
 
 function getPendingSelectionKey(id: string): string {
   return `pending:${id}`;
+}
+
+function formatPromptPreview(prompt: string): string {
+  const normalized = prompt.trim();
+  if (normalized.length <= PROMPT_PREVIEW_LIMIT) {
+    return normalized;
+  }
+
+  return `${normalized.slice(0, PROMPT_PREVIEW_LIMIT - 28)}\n\n...[full prompt in session]`;
+}
+
+function buildInspectResponseContent(options: {
+  prompt: string;
+  repoFullName?: string;
+  targetChannelId?: string;
+  continued?: boolean;
+  failure?: boolean;
+}): string {
+  const lines: string[] = [];
+
+  if (options.failure) {
+    lines.push(
+      options.repoFullName
+        ? `I couldn't start a session for **${options.repoFullName}**.`
+        : "I couldn't process that inspect request."
+    );
+  } else if (options.continued) {
+    lines.push(
+      options.repoFullName
+        ? `Continuing **${options.repoFullName}** in <#${options.targetChannelId}>.`
+        : `Continuing the existing session in <#${options.targetChannelId}>.`
+    );
+  } else {
+    lines.push(
+      options.repoFullName && options.targetChannelId
+        ? `Started Open-Inspect for **${options.repoFullName}** in <#${options.targetChannelId}>.`
+        : "Started Open-Inspect."
+    );
+  }
+
+  lines.push("", "**Prompt**", formatPromptPreview(options.prompt));
+  return lines.join("\n");
 }
 
 async function getAuthHeaders(env: Env, traceId?: string): Promise<Record<string, string>> {
@@ -593,8 +636,18 @@ async function handleInspectCommand(
       );
       await editOriginalInteractionResponse(env.DISCORD_APPLICATION_ID, interactionToken, {
         content: continued
-          ? "Sent your prompt to the existing Open-Inspect session in this thread."
-          : "I couldn't send that prompt to the existing session.",
+          ? buildInspectResponseContent({
+              prompt,
+              repoFullName: existingSession.repoFullName,
+              targetChannelId: channelId,
+              continued: true,
+            })
+          : buildInspectResponseContent({
+              prompt,
+              repoFullName: existingSession.repoFullName,
+              targetChannelId: channelId,
+              failure: true,
+            }),
         components: [],
       });
       return;
@@ -692,8 +745,12 @@ async function handleInspectCommand(
 
   await editOriginalInteractionResponse(env.DISCORD_APPLICATION_ID, interactionToken, {
     content: started
-      ? `Started Open-Inspect for **${repo.fullName}** in <#${started.targetChannelId}>.`
-      : `I couldn't start a session for **${repo.fullName}**.`,
+      ? buildInspectResponseContent({
+          prompt,
+          repoFullName: repo.fullName,
+          targetChannelId: started.targetChannelId,
+        })
+      : buildInspectResponseContent({ prompt, repoFullName: repo.fullName, failure: true }),
     components: started
       ? [
           {
@@ -783,8 +840,16 @@ async function handleRepoSelection(
 
   await editOriginalInteractionResponse(env.DISCORD_APPLICATION_ID, interaction.token, {
     content: started
-      ? `Started Open-Inspect for **${repo.fullName}** in <#${started.targetChannelId}>.`
-      : `I couldn't start a session for **${repo.fullName}**.`,
+      ? buildInspectResponseContent({
+          prompt: pending.prompt,
+          repoFullName: repo.fullName,
+          targetChannelId: started.targetChannelId,
+        })
+      : buildInspectResponseContent({
+          prompt: pending.prompt,
+          repoFullName: repo.fullName,
+          failure: true,
+        }),
     components: [],
   });
 }
@@ -857,7 +922,7 @@ app.post("/interactions", async (c) => {
 
   if (interaction.type === 2 && interaction.data?.name === "inspect") {
     c.executionCtx.waitUntil(handleInspectCommand(interaction, c.env, traceId));
-    return c.json({ type: 5, data: { flags: 64 } });
+    return c.json({ type: 5 });
   }
 
   if (interaction.type === 2 && interaction.data?.name === "inspect-settings") {
