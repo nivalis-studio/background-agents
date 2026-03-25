@@ -61,6 +61,7 @@ Enable the worker and provide Discord credentials in `terraform.tfvars`:
 ```hcl
 enable_discord_bot     = true
 discord_application_id = "your-application-id"
+discord_default_repo_owner = "your-org" # optional shorthand for repo input/autocomplete
 discord_public_key     = "your-public-key"
 discord_bot_token      = "your-bot-token"
 ```
@@ -73,19 +74,20 @@ The worker also uses these existing values:
 
 ### Worker bindings
 
-| Binding                    | Type            | Description                                            |
-| -------------------------- | --------------- | ------------------------------------------------------ |
-| `DISCORD_KV`               | KV namespace    | Thread/session mappings, pending clarifications, prefs |
-| `CONTROL_PLANE`            | Service binding | Fetcher to the control plane worker                    |
-| `CONTROL_PLANE_URL`        | Plain text      | Control plane URL for logging and fallback             |
-| `WEB_APP_URL`              | Plain text      | Web app base URL for session links                     |
-| `DEFAULT_MODEL`            | Plain text      | Default model for new sessions                         |
-| `CLASSIFICATION_MODEL`     | Plain text      | Model used for repo classification                     |
-| `DISCORD_APPLICATION_ID`   | Plain text      | Discord app ID                                         |
-| `DISCORD_PUBLIC_KEY`       | Secret          | Discord interaction verification key                   |
-| `DISCORD_BOT_TOKEN`        | Secret          | Discord bot token                                      |
-| `ANTHROPIC_API_KEY`        | Secret          | LLM classifier key                                     |
-| `INTERNAL_CALLBACK_SECRET` | Secret          | HMAC auth for control-plane callbacks                  |
+| Binding                      | Type            | Description                                              |
+| ---------------------------- | --------------- | -------------------------------------------------------- |
+| `DISCORD_KV`                 | KV namespace    | Thread/session mappings, pending clarifications, prefs   |
+| `CONTROL_PLANE`              | Service binding | Fetcher to the control plane worker                      |
+| `CONTROL_PLANE_URL`          | Plain text      | Control plane URL for logging and fallback               |
+| `WEB_APP_URL`                | Plain text      | Web app base URL for session links                       |
+| `DEFAULT_MODEL`              | Plain text      | Default model for new sessions                           |
+| `CLASSIFICATION_MODEL`       | Plain text      | Model used for repo classification                       |
+| `DISCORD_APPLICATION_ID`     | Plain text      | Discord app ID                                           |
+| `DISCORD_DEFAULT_REPO_OWNER` | Plain text      | Optional default owner for `repo` shorthand/autocomplete |
+| `DISCORD_PUBLIC_KEY`         | Secret          | Discord interaction verification key                     |
+| `DISCORD_BOT_TOKEN`          | Secret          | Discord bot token                                        |
+| `ANTHROPIC_API_KEY`          | Secret          | LLM classifier key                                       |
+| `INTERNAL_CALLBACK_SECRET`   | Secret          | HMAC auth for control-plane callbacks                    |
 
 ## Discord Setup
 
@@ -139,6 +141,13 @@ Options:
 
 - `prompt` - required instruction for the agent
 - `repo` - optional explicit `owner/name` override
+
+If `DISCORD_DEFAULT_REPO_OWNER` is set, the `repo` option also accepts shorthand names like
+`my-repo` and resolves them to `your-owner/my-repo`.
+
+The `repo` option supports Discord autocomplete based on repositories accessible to the GitHub App
+installation. When the default owner is configured, suggestions prefer the short repo name while
+still showing the full `owner/name` in the label.
 
 Behavior:
 

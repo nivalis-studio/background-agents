@@ -96,6 +96,7 @@ slack_signing_secret = ""
 enable_discord_bot = false
 
 discord_application_id = ""
+discord_default_repo_owner = "nivalis-studio"  # Optional, so `/inspect repo:my-repo` works
 discord_public_key = ""
 discord_bot_token = ""
 

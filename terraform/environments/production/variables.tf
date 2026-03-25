@@ -142,6 +142,12 @@ variable "discord_application_id" {
   default     = ""
 }
 
+variable "discord_default_repo_owner" {
+  description = "Default repository owner for Discord repo autocomplete and shorthand repo input"
+  type        = string
+  default     = ""
+}
+
 variable "discord_public_key" {
   description = "Discord interaction public key"
   type        = string

@@ -303,6 +303,73 @@ function getStringOption(interaction: DiscordInteraction, name: string): string 
   return typeof option?.value === "string" ? option.value : undefined;
 }
 
+function getFocusedOption(interaction: DiscordInteraction): string | undefined {
+  const option = interaction.data?.options?.find((candidate) => candidate.focused);
+  return typeof option?.value === "string" ? option.value : undefined;
+}
+
+function normalizeRequestedRepoInput(env: Env, input: string): string {
+  const trimmed = input.trim();
+  if (!trimmed || trimmed.includes("/")) {
+    return trimmed;
+  }
+
+  const defaultOwner = env.DISCORD_DEFAULT_REPO_OWNER?.trim().toLowerCase();
+  if (!defaultOwner) {
+    return trimmed;
+  }
+
+  return `${defaultOwner}/${trimmed.toLowerCase()}`;
+}
+
+async function resolveRequestedRepoInput(
+  env: Env,
+  requestedRepo: string,
+  traceId?: string
+): Promise<RepoConfig | undefined> {
+  const normalizedInput = normalizeRequestedRepoInput(env, requestedRepo);
+  return (
+    (await getRepoByFullName(env, normalizedInput, traceId)) ||
+    (await getRepoById(env, normalizedInput, traceId)) ||
+    (await getRepoById(env, requestedRepo, traceId))
+  );
+}
+
+async function buildRepoAutocompleteChoices(
+  env: Env,
+  focusedValue: string,
+  traceId?: string
+): Promise<Array<{ name: string; value: string }>> {
+  const repos = await getAvailableRepos(env, traceId);
+  const query = focusedValue.trim().toLowerCase();
+  const defaultOwner = env.DISCORD_DEFAULT_REPO_OWNER?.trim().toLowerCase();
+
+  return repos
+    .filter((repo) => {
+      if (!query) return true;
+      const shortName =
+        defaultOwner && repo.owner.toLowerCase() === defaultOwner ? repo.name.toLowerCase() : "";
+
+      return (
+        repo.fullName.toLowerCase().includes(query) ||
+        repo.name.toLowerCase().includes(query) ||
+        shortName.includes(query) ||
+        repo.aliases?.some((alias) => alias.toLowerCase().includes(query))
+      );
+    })
+    .sort((a, b) => a.fullName.localeCompare(b.fullName))
+    .slice(0, 25)
+    .map((repo) => {
+      const useShortValue = defaultOwner && repo.owner.toLowerCase() === defaultOwner;
+      const value = useShortValue ? repo.name : repo.fullName;
+      const name = useShortValue ? `${repo.name} (${repo.fullName})` : repo.fullName;
+      return {
+        name: name.slice(0, 100),
+        value: value.slice(0, 100),
+      };
+    });
+}
+
 function buildRepoSelectComponents(
   repos: RepoConfig[],
   pendingId: string
@@ -656,9 +723,7 @@ async function handleInspectCommand(
 
   let repo: RepoConfig | undefined;
   if (requestedRepo) {
-    repo =
-      (await getRepoByFullName(env, requestedRepo, traceId)) ||
-      (await getRepoById(env, requestedRepo, traceId));
+    repo = await resolveRequestedRepoInput(env, requestedRepo, traceId);
     if (!repo) {
       await editOriginalInteractionResponse(env.DISCORD_APPLICATION_ID, interactionToken, {
         content: `Repository \`${requestedRepo}\` is not available to the GitHub App installation.`,
@@ -897,6 +962,21 @@ async function handleSettingsSelection(
   await editOriginalInteractionResponse(env.DISCORD_APPLICATION_ID, interaction.token, message);
 }
 
+async function handleRepoAutocomplete(
+  interaction: DiscordInteraction,
+  env: Env,
+  traceId: string
+): Promise<Response> {
+  const focusedValue = getFocusedOption(interaction) ?? "";
+  const choices = await buildRepoAutocompleteChoices(env, focusedValue, traceId);
+  return Response.json({
+    type: 8,
+    data: {
+      choices,
+    },
+  });
+}
+
 app.get("/health", (c) => c.json({ status: "healthy", service: "open-inspect-discord-bot" }));
 app.route("/callbacks", callbacksRouter);
 
@@ -928,6 +1008,10 @@ app.post("/interactions", async (c) => {
   if (interaction.type === 2 && interaction.data?.name === "inspect-settings") {
     c.executionCtx.waitUntil(handleSettingsCommand(interaction, c.env, traceId));
     return c.json({ type: 5, data: { flags: 64 } });
+  }
+
+  if (interaction.type === 4 && interaction.data?.name === "inspect") {
+    return handleRepoAutocomplete(interaction, c.env, traceId);
   }
 
   if (interaction.type === 3) {

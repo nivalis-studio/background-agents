@@ -349,6 +349,7 @@ slack_signing_secret = ""
 # Discord (set enable_discord_bot = false to disable Discord integration)
 enable_discord_bot      = false
 discord_application_id  = ""
+discord_default_repo_owner = ""   # Optional shorthand owner for `/inspect repo:my-repo`
 discord_public_key      = ""
 discord_bot_token       = ""
 
@@ -567,6 +568,8 @@ npm run register:commands -w @open-inspect/discord-bot
 ### Usage
 
 - `/inspect prompt:<what to do> repo:<optional owner/name>` starts a coding session
+- set `discord_default_repo_owner` if you want `/inspect repo:my-repo` shorthand and better repo
+  autocomplete
 - `/inspect-settings` stores your preferred model and reasoning effort
 - Run `/inspect` inside an existing Discord thread to continue the mapped session
 

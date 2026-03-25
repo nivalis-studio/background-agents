@@ -22,6 +22,7 @@ const commands = [
         name: "repo",
         description: "Optional owner/name repository override",
         required: false,
+        autocomplete: true,
       },
     ],
   },

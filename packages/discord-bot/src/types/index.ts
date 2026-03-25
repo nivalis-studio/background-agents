@@ -10,6 +10,7 @@ export interface Env {
   DEFAULT_MODEL: string;
   CLASSIFICATION_MODEL: string;
   DISCORD_APPLICATION_ID: string;
+  DISCORD_DEFAULT_REPO_OWNER?: string;
 
   DISCORD_BOT_TOKEN: string;
   DISCORD_PUBLIC_KEY: string;
@@ -118,6 +119,7 @@ export interface DiscordInteraction {
       name: string;
       type: number;
       value?: string | number | boolean;
+      focused?: boolean;
     }>;
     values?: string[];
   };

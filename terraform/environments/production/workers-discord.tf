@@ -46,6 +46,7 @@ module "discord_bot_worker" {
     { name = "DEFAULT_MODEL", value = "claude-haiku-4-5" },
     { name = "CLASSIFICATION_MODEL", value = "claude-haiku-4-5" },
     { name = "DISCORD_APPLICATION_ID", value = var.discord_application_id },
+    { name = "DISCORD_DEFAULT_REPO_OWNER", value = var.discord_default_repo_owner },
   ]
 
   secrets = [
