@@ -10,6 +10,7 @@ on:
       - "packages/slack-bot/**"
       - "packages/github-bot/**"
       - "packages/linear-bot/**"
+      - "packages/discord-bot/**"
       - "packages/modal-infra/**"
       - "packages/sandbox-runtime/**"
       - "packages/shared/**"
@@ -24,6 +25,7 @@ on:
       - "packages/slack-bot/**"
       - "packages/github-bot/**"
       - "packages/linear-bot/**"
+      - "packages/discord-bot/**"
       - "packages/modal-infra/**"
       - "packages/sandbox-runtime/**"
       - "packages/shared/**"
@@ -153,6 +155,7 @@ jobs:
           npm run build -w @open-inspect/shared
           npm run build -w @open-inspect/control-plane
           npm run build -w @open-inspect/slack-bot
+          npm run build -w @open-inspect/discord-bot
           npm run build -w @open-inspect/github-bot
           npm run build -w @open-inspect/linear-bot
 
@@ -195,6 +198,11 @@ jobs:
           TF_VAR_enable_slack_bot: "${{ secrets.ENABLE_SLACK_BOT || 'true' }}"
           TF_VAR_slack_bot_token: ${{ secrets.SLACK_BOT_TOKEN }}
           TF_VAR_slack_signing_secret: ${{ secrets.SLACK_SIGNING_SECRET }}
+          TF_VAR_enable_discord_bot: "${{ secrets.ENABLE_DISCORD_BOT || 'false' }}"
+          TF_VAR_discord_application_id: ${{ secrets.DISCORD_APPLICATION_ID }}
+          TF_VAR_discord_public_key: ${{ secrets.DISCORD_PUBLIC_KEY }}
+          TF_VAR_discord_bot_token: ${{ secrets.DISCORD_BOT_TOKEN }}
+          TF_VAR_discord_default_repo_owner: ${{ secrets.DISCORD_DEFAULT_REPO_OWNER }}
           TF_VAR_anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           TF_VAR_token_encryption_key: ${{ secrets.TOKEN_ENCRYPTION_KEY }}
           TF_VAR_repo_secrets_encryption_key: ${{ secrets.REPO_SECRETS_ENCRYPTION_KEY }}
@@ -275,6 +283,7 @@ jobs:
           npm run build -w @open-inspect/shared
           npm run build -w @open-inspect/control-plane
           npm run build -w @open-inspect/slack-bot
+          npm run build -w @open-inspect/discord-bot
           npm run build -w @open-inspect/github-bot
           npm run build -w @open-inspect/linear-bot
 
@@ -321,6 +330,11 @@ jobs:
           TF_VAR_enable_slack_bot: "${{ secrets.ENABLE_SLACK_BOT || 'true' }}"
           TF_VAR_slack_bot_token: ${{ secrets.SLACK_BOT_TOKEN }}
           TF_VAR_slack_signing_secret: ${{ secrets.SLACK_SIGNING_SECRET }}
+          TF_VAR_enable_discord_bot: "${{ secrets.ENABLE_DISCORD_BOT || 'false' }}"
+          TF_VAR_discord_application_id: ${{ secrets.DISCORD_APPLICATION_ID }}
+          TF_VAR_discord_public_key: ${{ secrets.DISCORD_PUBLIC_KEY }}
+          TF_VAR_discord_bot_token: ${{ secrets.DISCORD_BOT_TOKEN }}
+          TF_VAR_discord_default_repo_owner: ${{ secrets.DISCORD_DEFAULT_REPO_OWNER }}
           TF_VAR_anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           TF_VAR_token_encryption_key: ${{ secrets.TOKEN_ENCRYPTION_KEY }}
           TF_VAR_repo_secrets_encryption_key: ${{ secrets.REPO_SECRETS_ENCRYPTION_KEY }}
@@ -341,6 +355,18 @@ jobs:
           TF_VAR_enable_durable_object_bindings: "${{ secrets.ENABLE_DURABLE_OBJECT_BINDINGS || 'true' }}"
           MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID }}
           MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET }}
+
+      - name: Register Discord slash commands
+        run: |
+          if [ "${ENABLE_DISCORD_BOT}" != "true" ]; then
+            echo "Discord bot disabled; skipping slash command registration"
+            exit 0
+          fi
+          npm run register:commands -w @open-inspect/discord-bot
+        env:
+          ENABLE_DISCORD_BOT: "${{ secrets.ENABLE_DISCORD_BOT || 'false' }}"
+          DISCORD_APPLICATION_ID: ${{ secrets.DISCORD_APPLICATION_ID }}
+          DISCORD_BOT_TOKEN: ${{ secrets.DISCORD_BOT_TOKEN }}
 
       - name: Post Apply Results
         if: always()
