@@ -196,7 +196,7 @@ export interface AgentSessionWebhook {
   type: string;
   action: string;
   organizationId: string;
-  webhookId?: string;
+  webhookId: string;
   appUserId?: string;
   agentSession: {
     id: string;

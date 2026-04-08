@@ -48,9 +48,10 @@ function isAgentSessionWebhookPayload(payload: unknown): payload is AgentSession
   const type = readStringField(payload, "type");
   const action = readStringField(payload, "action");
   const organizationId = readStringField(payload, "organizationId");
+  const webhookId = readStringField(payload, "webhookId");
   const agentSession = payload.agentSession;
 
-  if (!type || !action || !organizationId || !isObjectRecord(agentSession)) {
+  if (!type || !action || !organizationId || !isObjectRecord(agentSession) || !webhookId) {
     return false;
   }
 
