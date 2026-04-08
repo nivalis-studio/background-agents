@@ -203,5 +203,10 @@ export interface AgentSessionWebhook {
     comment?: { body: string };
     promptContext?: string;
   };
-  agentActivity?: { body?: string };
+  agentActivity?: {
+    content?: {
+      type?: string;
+      body?: string;
+    };
+  };
 }
